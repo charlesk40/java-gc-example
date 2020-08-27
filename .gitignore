@@ -1,0 +1,7 @@
+*.class
+*.log
+*.jfr
+.classpath
+.project
+GCExample.jar
+bin/
