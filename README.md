@@ -4,28 +4,117 @@
 
 ##Building:
 
-``javac src/com/gc/example/GCExample.java  -d `pwd`; jar cvfm GCExample.jar src/com/gc/example/manifest.txt com/gc/example/GCExample.class;``
+``javac src/com/cds/example/CDSExample.java  -d `pwd`; jar cvfm CDSExample.jar src/com/cds/example/manifest.txt com/cds/example/CDSExample.class;``
 
 
 
-##Running with GC options (JDK 11):
-
-``rm -f `pwd`/gc*; java -Xms50m -Xmx50m  -Xlog:gc*=debug:file=`pwd`/gc.log:tags,time:filecount=10,filesize=4M -jar GCExample.jar ``
+##Running with CDS options (JDK 8):
 
 
-##Running with JFR options (JDK 11):
-
-``java -Xms50m -Xmx50m  -XX:+FlightRecorder -XX:StartFlightRecording=disk=true,maxage=2h -jar GCExample.jar ``
-
-##Taking the dump:
-
-``jcmd 25270 JFR.dump name=1 filename=`pwd`/gc.jfr``
+Generate the archive classes.
 
 
-##Open JFR file with Java Mission Control and analyze.
-
-Running GCViewer to analyze gc logs:
-
-``java -jar gcviewer-1.36.jar``
+`` sudo java -Xshare:dump -jar CDSExample.jar ``
 
 
+Should produce the archive file called classes.jsa at:
+
+`` ls -lh /Library/Java/JavaVirtualMachines/yjava_jdk-8.0_8u242b08.3911256/Contents/Home/jre/lib/server/classes.jsa ``
+
+
+Use the share file to run:
+
+``java  -Xshare:on  -jar CDSExample.jar ``
+
+
+
+##Running with CDS options (JDK 11):
+
+create a list of classes to include in the archive  -XX:DumpLoadedClassList
+
+``java -XX:DumpLoadedClassList=classes.lst -jar CDSExample.jar``
+
+
+Generate the archive classes.
+
+
+`` sudo java -Xshare:dump -jar CDSExample.jar ``
+
+Use the share file to run:
+
+``java  -Xshare:on  -jar CDSExample.jar ``
+
+
+##Running with CDS options (JDK 12):
+
+The JDK comes with one and uses it automatically. If you want to turn that off, launch your application with -Xshare:off.
+
+
+
+##Launch Time Measurements
+
+On:
+
+``time java  -Xshare:on  -jar CDSExample.jar ``
+
+```
+amountblood-lm:java-gc-example charlesk$ time java  -Xshare:on  -jar CDSExample.jar 
+Starting CDSExample...
+args:  []
+Finished CDSExample.
+
+real    0m0.070s
+user    0m0.049s
+sys 0m0.022s
+```
+
+
+Off:
+
+``time java  -Xshare:off  -jar CDSExample.jar ``
+
+```
+amountblood-lm:java-gc-example charlesk$ time java  -Xshare:off  -jar CDSExample.jar 
+Starting CDSExample...
+args:  []
+Finished CDSExample.
+
+real    0m0.088s
+user    0m0.065s
+sys 0m0.025s
+```
+
+
+
+The interesting bit is real, which gives the wall-clock time it took to run the app. 70 ms to 88ms (without class data sharing)
+
+
+
+
+
+## NOTES:
+
+On Java 12+, Java classes are automatically loaded from the archive included in the JDK
+
+On Java 13+, class-data archives can be automatically created by the JVM on shutdown with the command line option -XX:ArchiveClassesAtExit=${ARCHIVE}; to use it, add -XX:SharedArchiveFile=${ARCHIVE} on launch
+
+On Java 10+, it is possible to hand-craft archives in three steps:
+
+create a list of classes to include in the archive
+$ java
+    -XX:DumpLoadedClassList=classes.lst
+    -jar app.jar
+ 
+create the archive
+$ java
+    -Xshare:dump
+    -XX:SharedClassListFile=classes.lst
+    -XX:SharedArchiveFile=app-cds.jsa
+    --class-path app.jar
+ 
+use the archive
+$ java
+    -XX:SharedArchiveFile=app-cds.jsa
+    -jar app.jar
+
+    
